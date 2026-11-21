@@ -13,18 +13,13 @@ const downloadBtn = document.getElementById("downloadBtn");
 const preview = document.getElementById("preview");
 const imagePreview = document.getElementById("imagePreview");
 
-// GENERATE RANDOM FILENAME
+// RANDOM FILENAME
 function generateFileName(type) {
-    const random = Array.from(
-        { length: 24 },
-        () => "abcdefghijklmnopqrstuvwxyz"[
-            Math.floor(Math.random() * 26)
-        ]
-    ).join("");
-
+    const random = crypto.randomUUID().replace(/-/g, "");
+    const timestamp = Date.now();
     const extension = type === "video" ? "mp4" : "jpg";
 
-    return `retikwm-${random}.${extension}`;
+    return `ReTikWM-${timestamp}-${random}.${extension}`;
 }
 
 // PLATFORM SELECT
@@ -42,22 +37,14 @@ document.querySelectorAll(".platform-btn").forEach(btn => {
             ? "https://www.tiktok.com/..."
             : "https://www.instagram.com/reel/...";
 
-        result.style.display = "none";
-        errorBox.style.display = "none";
-
-        preview.pause();
-        preview.removeAttribute("src");
-        preview.load();
-
-        currentMedia = null;
+        resetResult();
     });
 });
 
 // PASTE LINK
 async function pasteLink() {
     try {
-        const text = await navigator.clipboard.readText();
-        input.value = text;
+        input.value = await navigator.clipboard.readText();
     } catch {
         showError("Tidak bisa mengakses clipboard. Silakan paste manual.");
     }
@@ -88,6 +75,8 @@ function resetResult() {
 
     imagePreview.removeAttribute("src");
     currentMedia = null;
+
+    document.getElementById("extraDownloads").innerHTML = "";
 }
 
 // MAIN DOWNLOAD
@@ -129,7 +118,7 @@ async function downloadMedia() {
     }
 }
 
-// TIKTOK API
+// TIKTOK API + PHOTO SLIDESHOW
 async function downloadTikTok(url) {
     const params = new URLSearchParams({
         url: url,
@@ -152,15 +141,88 @@ async function downloadTikTok(url) {
     const json = await response.json();
 
     if (json.code !== 0 || !json.data) {
-        throw new Error(json.msg || "Gagal mengambil video TikTok.");
+        throw new Error(json.msg || "Gagal mengambil media TikTok.");
     }
 
     const data = json.data;
 
-    if (data.duration === 0 && data.images?.length) {
-        throw new Error("Konten TikTok ini berupa foto/slideshow.");
+    // PHOTO SLIDESHOW
+    if (Array.isArray(data.images) && data.images.length > 0) {
+        const photos = data.images;
+
+        currentMedia = {
+            platform: "tiktok",
+            type: "image",
+            url: photos[0],
+            title: data.title || "TikTok Photos",
+            media: photos
+        };
+
+        preview.pause();
+        preview.removeAttribute("src");
+        preview.load();
+        preview.style.display = "none";
+
+        imagePreview.style.display = "block";
+        imagePreview.src = photos[0];
+
+        setAuthor(
+            data.author?.nickname || "TikTok User",
+            "@" + (data.author?.unique_id || "unknown"),
+            data.author?.avatar || "",
+            data.author?.verified
+        );
+
+        document.getElementById("caption").textContent =
+            data.title || "TikTok Photo Slideshow";
+
+        document.getElementById("views").textContent =
+            formatNumber(data.play_count);
+
+        document.getElementById("likes").textContent =
+            formatNumber(data.digg_count);
+
+        document.getElementById("comments").textContent =
+            formatNumber(data.comment_count);
+
+        document.getElementById("qualityTitle").textContent =
+            `${photos.length} Foto Tersedia`;
+
+        document.getElementById("qualityDescription").textContent =
+            "TikTok Photo Slideshow • Original Quality";
+
+        const extra = document.getElementById("extraDownloads");
+        extra.innerHTML = "";
+
+        photos.forEach((photo, index) => {
+            const div = document.createElement("div");
+            div.className = "extra-download-item";
+
+            const label = document.createElement("span");
+            label.textContent = `Foto ${index + 1}`;
+
+            const link = document.createElement("a");
+            link.href = "#";
+            link.innerHTML = '<i class="fas fa-download"></i> Download';
+
+            link.addEventListener("click", async e => {
+                e.preventDefault();
+                await downloadFile(photo, "image", link);
+            });
+
+            div.append(label, link);
+            extra.appendChild(div);
+        });
+
+        document.getElementById("saveBtn").innerHTML =
+            '<i class="fas fa-download"></i> Download Foto Pertama';
+
+        result.style.display = "block";
+        scrollResult();
+        return;
     }
 
+    // VIDEO
     const videoUrl = data.hdplay || data.play;
 
     if (!videoUrl) {
@@ -254,7 +316,6 @@ async function downloadInstagram(url) {
         media: media
     };
 
-    // PREVIEW
     if (first.type === "video") {
         preview.style.display = "block";
         imagePreview.style.display = "none";
@@ -269,7 +330,6 @@ async function downloadInstagram(url) {
         imagePreview.src = first.url;
     }
 
-    // AUTHOR
     const author = data.author || {};
 
     setAuthor(
@@ -279,11 +339,9 @@ async function downloadInstagram(url) {
         author.verified
     );
 
-    // CAPTION
     document.getElementById("caption").textContent =
         data.title || "Tidak ada caption.";
 
-    // STATS
     document.getElementById("views").textContent = "-";
 
     document.getElementById("likes").textContent =
@@ -292,7 +350,6 @@ async function downloadInstagram(url) {
     document.getElementById("comments").textContent =
         formatNumber(data.stats?.comments);
 
-    // QUALITY
     document.getElementById("qualityTitle").textContent =
         media.length > 1
             ? `${media.length} Media Tersedia`
@@ -301,7 +358,6 @@ async function downloadInstagram(url) {
     document.getElementById("qualityDescription").textContent =
         `${first.type.toUpperCase()} • ${data.duration || "Original Quality"}`;
 
-    // EXTRA DOWNLOADS
     const extra = document.getElementById("extraDownloads");
     extra.innerHTML = "";
 
@@ -310,19 +366,15 @@ async function downloadInstagram(url) {
         div.className = "extra-download-item";
 
         const label = document.createElement("span");
-
         label.textContent =
             `${item.type === "video" ? "Video" : "Foto"} ${index + 1}`;
 
         const link = document.createElement("a");
-
         link.href = "#";
-        link.innerHTML =
-            '<i class="fas fa-download"></i> Download';
+        link.innerHTML = '<i class="fas fa-download"></i> Download';
 
         link.addEventListener("click", async e => {
             e.preventDefault();
-
             await downloadFile(item.url, item.type, link);
         });
 
@@ -381,7 +433,6 @@ async function downloadFile(url, type, button) {
         const blobUrl = URL.createObjectURL(blob);
 
         const a = document.createElement("a");
-
         a.href = blobUrl;
         a.download = generateFileName(type);
 
@@ -395,9 +446,7 @@ async function downloadFile(url, type, button) {
 
     } catch (err) {
         console.error(err);
-
         window.open(url, "_blank", "noopener,noreferrer");
-
     } finally {
         button.innerHTML = original;
         button.disabled = false;
