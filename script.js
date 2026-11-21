@@ -13,26 +13,72 @@ const downloadBtn = document.getElementById("downloadBtn");
 const preview = document.getElementById("preview");
 const imagePreview = document.getElementById("imagePreview");
 
+// GENERATE RANDOM FILENAME
+function generateFileName(type) {
+    const random = Array.from(
+        { length: 24 },
+        () => "abcdefghijklmnopqrstuvwxyz"[
+            Math.floor(Math.random() * 26)
+        ]
+    ).join("");
+
+    const extension = type === "video" ? "mp4" : "jpg";
+
+    return `retikwm-${random}.${extension}`;
+}
+
 // PLATFORM SELECT
-
 document.querySelectorAll(".platform-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+        document.querySelectorAll(".platform-btn").forEach(b => {
+            b.classList.remove("active");
+        });
 
-btn.addEventListener("click", () => {
+        btn.classList.add("active");
+        currentPlatform = btn.dataset.platform;
+        input.value = "";
 
-    document.querySelectorAll(".platform-btn").forEach(b => {
-        b.classList.remove("active");
+        input.placeholder = currentPlatform === "tiktok"
+            ? "https://www.tiktok.com/..."
+            : "https://www.instagram.com/reel/...";
+
+        result.style.display = "none";
+        errorBox.style.display = "none";
+
+        preview.pause();
+        preview.removeAttribute("src");
+        preview.load();
+
+        currentMedia = null;
     });
+});
 
-    btn.classList.add("active");
+// PASTE LINK
+async function pasteLink() {
+    try {
+        const text = await navigator.clipboard.readText();
+        input.value = text;
+    } catch {
+        showError("Tidak bisa mengakses clipboard. Silakan paste manual.");
+    }
+}
 
-    currentPlatform = btn.dataset.platform;
+// FORMAT NUMBER
+function formatNumber(num) {
+    return new Intl.NumberFormat("id-ID", {
+        notation: "compact",
+        maximumFractionDigits: 1
+    }).format(Number(num) || 0);
+}
 
-    input.value = "";
+// ERROR
+function showError(message) {
+    errorBox.style.display = "block";
+    errorBox.textContent = message;
+}
 
-    input.placeholder = currentPlatform === "tiktok"
-        ? "https://www.tiktok.com/..."
-        : "https://www.instagram.com/reel/...";
-
+// RESET RESULT
+function resetResult() {
     result.style.display = "none";
     errorBox.style.display = "none";
 
@@ -40,443 +86,340 @@ btn.addEventListener("click", () => {
     preview.removeAttribute("src");
     preview.load();
 
+    imagePreview.removeAttribute("src");
     currentMedia = null;
-
-});
-
-});
-
-// PASTE LINK
-
-async function pasteLink() {
-
-try {
-
-    const text = await navigator.clipboard.readText();
-
-    input.value = text;
-
-} catch {
-
-    showError("Tidak bisa mengakses clipboard. Silakan paste manual.");
-
-}
-
-}
-
-// FORMAT NUMBER
-
-function formatNumber(num) {
-
-return new Intl.NumberFormat("id-ID", {
-    notation: "compact",
-    maximumFractionDigits: 1
-}).format(Number(num) || 0);
-
-}
-
-// ERROR
-
-function showError(message) {
-
-errorBox.style.display = "block";
-errorBox.textContent = message;
-
-}
-
-// RESET RESULT
-
-function resetResult() {
-
-result.style.display = "none";
-errorBox.style.display = "none";
-
-preview.pause();
-preview.removeAttribute("src");
-preview.load();
-
-imagePreview.removeAttribute("src");
-
-currentMedia = null;
-
 }
 
 // MAIN DOWNLOAD
-
 async function downloadMedia() {
+    const url = input.value.trim();
 
-const url = input.value.trim();
+    resetResult();
 
-resetResult();
-
-if (!url) {
-    showError("Masukkan link terlebih dahulu!");
-    return;
-}
-
-if (currentPlatform === "tiktok" && !/tiktok\.com/i.test(url)) {
-    showError("Link yang dimasukkan bukan link TikTok!");
-    return;
-}
-
-if (currentPlatform === "instagram" &&
-    !/instagram\.com/i.test(url)) {
-    showError("Link yang dimasukkan bukan link Instagram!");
-    return;
-}
-
-loading.style.display = "block";
-downloadBtn.disabled = true;
-
-try {
-
-    if (currentPlatform === "tiktok") {
-
-        await downloadTikTok(url);
-
-    } else {
-
-        await downloadInstagram(url);
-
+    if (!url) {
+        showError("Masukkan link terlebih dahulu!");
+        return;
     }
 
-} catch (err) {
+    if (currentPlatform === "tiktok" && !/tiktok\.com/i.test(url)) {
+        showError("Link yang dimasukkan bukan link TikTok!");
+        return;
+    }
 
-    showError(err.message || "Terjadi kesalahan.");
+    if (currentPlatform === "instagram" && !/instagram\.com/i.test(url)) {
+        showError("Link yang dimasukkan bukan link Instagram!");
+        return;
+    }
 
-    console.error(err);
+    loading.style.display = "block";
+    downloadBtn.disabled = true;
 
-} finally {
-
-    loading.style.display = "none";
-    downloadBtn.disabled = false;
-
-}
-
+    try {
+        if (currentPlatform === "tiktok") {
+            await downloadTikTok(url);
+        } else {
+            await downloadInstagram(url);
+        }
+    } catch (err) {
+        showError(err.message || "Terjadi kesalahan.");
+        console.error(err);
+    } finally {
+        loading.style.display = "none";
+        downloadBtn.disabled = false;
+    }
 }
 
 // TIKTOK API
-
 async function downloadTikTok(url) {
+    const params = new URLSearchParams({
+        url: url,
+        hd: "1"
+    });
 
-const params = new URLSearchParams({
-    url: url,
-    hd: "1"
-});
+    const response = await fetch(TIKTOK_API, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+            "Accept": "application/json"
+        },
+        body: params
+    });
 
-const response = await fetch(TIKTOK_API, {
-    method: "POST",
-    headers: {
-        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-        "Accept": "application/json"
-    },
-    body: params
-});
+    if (!response.ok) {
+        throw new Error("Server TikTok error: " + response.status);
+    }
 
-if (!response.ok) {
-    throw new Error("Server TikTok error: " + response.status);
-}
+    const json = await response.json();
 
-const json = await response.json();
+    if (json.code !== 0 || !json.data) {
+        throw new Error(json.msg || "Gagal mengambil video TikTok.");
+    }
 
-if (json.code !== 0 || !json.data) {
-    throw new Error(json.msg || "Gagal mengambil video TikTok.");
-}
+    const data = json.data;
 
-const data = json.data;
+    if (data.duration === 0 && data.images?.length) {
+        throw new Error("Konten TikTok ini berupa foto/slideshow.");
+    }
 
-if (data.duration === 0 && data.images?.length) {
-    throw new Error("Konten TikTok ini berupa foto/slideshow.");
-}
+    const videoUrl = data.hdplay || data.play;
 
-const videoUrl = data.hdplay || data.play;
+    if (!videoUrl) {
+        throw new Error("Link video tidak ditemukan.");
+    }
 
-if (!videoUrl) {
-    throw new Error("Link video tidak ditemukan.");
-}
-
-currentMedia = {
-    platform: "tiktok",
-    type: "video",
-    url: videoUrl,
-    title: data.title || "TikTok Video",
-    filename: "TikTok-Video.mp4"
-};
-
-preview.style.display = "block";
-imagePreview.style.display = "none";
-
-preview.src = videoUrl;
-preview.poster = data.cover || "";
-
-setAuthor(
-    data.author?.nickname || "TikTok User",
-    "@" + (data.author?.unique_id || "unknown"),
-    data.author?.avatar || "",
-    data.author?.verified
-);
-
-document.getElementById("caption").textContent =
-    data.title || "Tidak ada caption.";
-
-document.getElementById("views").textContent =
-    formatNumber(data.play_count);
-
-document.getElementById("likes").textContent =
-    formatNumber(data.digg_count);
-
-document.getElementById("comments").textContent =
-    formatNumber(data.comment_count);
-
-document.getElementById("qualityTitle").textContent =
-    "Video Original";
-
-document.getElementById("qualityDescription").textContent =
-    "Tanpa watermark • HD Quality";
-
-document.getElementById("extraDownloads").innerHTML = "";
-
-document.getElementById("saveBtn").innerHTML =
-    '<i class="fas fa-download"></i> Download Tanpa Watermark';
-
-result.style.display = "block";
-
-scrollResult();
-
-}
-
-// INSTAGRAM API
-
-async function downloadInstagram(url) {
-
-const response = await fetch(
-    `${INSTAGRAM_API}?url=${encodeURIComponent(url)}`
-);
-
-if (!response.ok) {
-    throw new Error("Server Instagram error: " + response.status);
-}
-
-const json = await response.json();
-
-if (!json.status || !json.result) {
-    throw new Error("Gagal mengambil media Instagram.");
-}
-
-const data = json.result;
-
-if (!Array.isArray(data.data) || !data.data.length) {
-    throw new Error("Media Instagram tidak ditemukan.");
-}
-
-const media = data.data.filter(item =>
-    item.url && ["video", "image"].includes(item.type)
-);
-
-if (!media.length) {
-    throw new Error("Link media tidak tersedia.");
-}
-
-const first = media[0];
-
-currentMedia = {
-    platform: "instagram",
-    type: first.type,
-    url: first.url,
-    title: data.title || "Instagram Media",
-    filename: first.type === "video"
-        ? "Instagram-Video.mp4"
-        : "Instagram-Photo.jpg",
-    media: media
-};
-
-// PREVIEW
-
-if (first.type === "video") {
+    currentMedia = {
+        platform: "tiktok",
+        type: "video",
+        url: videoUrl,
+        title: data.title || "TikTok Video"
+    };
 
     preview.style.display = "block";
     imagePreview.style.display = "none";
 
-    preview.src = first.url;
-    preview.poster = first.thumbnail || "";
+    preview.src = videoUrl;
+    preview.poster = data.cover || "";
 
-} else {
+    setAuthor(
+        data.author?.nickname || "TikTok User",
+        "@" + (data.author?.unique_id || "unknown"),
+        data.author?.avatar || "",
+        data.author?.verified
+    );
 
-    preview.pause();
-    preview.style.display = "none";
+    document.getElementById("caption").textContent =
+        data.title || "Tidak ada caption.";
 
-    imagePreview.style.display = "block";
-    imagePreview.src = first.url;
+    document.getElementById("views").textContent =
+        formatNumber(data.play_count);
 
+    document.getElementById("likes").textContent =
+        formatNumber(data.digg_count);
+
+    document.getElementById("comments").textContent =
+        formatNumber(data.comment_count);
+
+    document.getElementById("qualityTitle").textContent =
+        "Video Original";
+
+    document.getElementById("qualityDescription").textContent =
+        "Tanpa watermark • HD Quality";
+
+    document.getElementById("extraDownloads").innerHTML = "";
+
+    document.getElementById("saveBtn").innerHTML =
+        '<i class="fas fa-download"></i> Download Tanpa Watermark';
+
+    result.style.display = "block";
+    scrollResult();
 }
 
-// AUTHOR
+// INSTAGRAM API
+async function downloadInstagram(url) {
+    const response = await fetch(
+        `${INSTAGRAM_API}?url=${encodeURIComponent(url)}`
+    );
 
-const author = data.author || {};
+    if (!response.ok) {
+        throw new Error("Server Instagram error: " + response.status);
+    }
 
-setAuthor(
-    author.fullname || author.username || "Instagram User",
-    "@" + (author.username || "unknown"),
-    first.thumbnail || "",
-    author.verified
-);
+    const json = await response.json();
 
-// CAPTION
+    if (!json.status || !json.result) {
+        throw new Error("Gagal mengambil media Instagram.");
+    }
 
-document.getElementById("caption").textContent =
-    data.title || "Tidak ada caption.";
+    const data = json.result;
 
-// STATS
+    if (!Array.isArray(data.data) || !data.data.length) {
+        throw new Error("Media Instagram tidak ditemukan.");
+    }
 
-document.getElementById("views").textContent = "-";
+    const media = data.data.filter(item =>
+        item.url && ["video", "image"].includes(item.type)
+    );
 
-document.getElementById("likes").textContent =
-    formatNumber(data.stats?.likes);
+    if (!media.length) {
+        throw new Error("Link media tidak tersedia.");
+    }
 
-document.getElementById("comments").textContent =
-    formatNumber(data.stats?.comments);
+    const first = media[0];
 
-// QUALITY
+    currentMedia = {
+        platform: "instagram",
+        type: first.type,
+        url: first.url,
+        title: data.title || "Instagram Media",
+        media: media
+    };
 
-document.getElementById("qualityTitle").textContent =
-    media.length > 1 ? `${media.length} Media Tersedia` : "Instagram Original";
+    // PREVIEW
+    if (first.type === "video") {
+        preview.style.display = "block";
+        imagePreview.style.display = "none";
 
-document.getElementById("qualityDescription").textContent =
-    `${first.type.toUpperCase()} • ${data.duration || "Original Quality"}`;
+        preview.src = first.url;
+        preview.poster = first.thumbnail || "";
+    } else {
+        preview.pause();
+        preview.style.display = "none";
 
-// EXTRA DOWNLOADS
+        imagePreview.style.display = "block";
+        imagePreview.src = first.url;
+    }
 
-const extra = document.getElementById("extraDownloads");
+    // AUTHOR
+    const author = data.author || {};
 
-extra.innerHTML = "";
+    setAuthor(
+        author.fullname || author.username || "Instagram User",
+        "@" + (author.username || "unknown"),
+        first.thumbnail || "",
+        author.verified
+    );
 
-media.forEach((item, index) => {
+    // CAPTION
+    document.getElementById("caption").textContent =
+        data.title || "Tidak ada caption.";
 
-    const div = document.createElement("div");
-    div.className = "extra-download-item";
+    // STATS
+    document.getElementById("views").textContent = "-";
 
-    const label = document.createElement("span");
-    label.textContent =
-        `${item.type === "video" ? "Video" : "Foto"} ${index + 1}`;
+    document.getElementById("likes").textContent =
+        formatNumber(data.stats?.likes);
 
-    const link = document.createElement("a");
-    link.href = item.url;
-    link.target = "_blank";
-    link.rel = "noopener noreferrer";
-    link.download = `Instagram-${index + 1}`;
+    document.getElementById("comments").textContent =
+        formatNumber(data.stats?.comments);
 
-    link.innerHTML = '<i class="fas fa-download"></i> Download';
+    // QUALITY
+    document.getElementById("qualityTitle").textContent =
+        media.length > 1
+            ? `${media.length} Media Tersedia`
+            : "Instagram Original";
 
-    div.append(label, link);
-    extra.appendChild(div);
+    document.getElementById("qualityDescription").textContent =
+        `${first.type.toUpperCase()} • ${data.duration || "Original Quality"}`;
 
-});
+    // EXTRA DOWNLOADS
+    const extra = document.getElementById("extraDownloads");
+    extra.innerHTML = "";
 
-document.getElementById("saveBtn").innerHTML =
-    '<i class="fas fa-download"></i> Download Media';
+    media.forEach((item, index) => {
+        const div = document.createElement("div");
+        div.className = "extra-download-item";
 
-result.style.display = "block";
+        const label = document.createElement("span");
 
-scrollResult();
+        label.textContent =
+            `${item.type === "video" ? "Video" : "Foto"} ${index + 1}`;
 
+        const link = document.createElement("a");
+
+        link.href = "#";
+        link.innerHTML =
+            '<i class="fas fa-download"></i> Download';
+
+        link.addEventListener("click", async e => {
+            e.preventDefault();
+
+            await downloadFile(item.url, item.type, link);
+        });
+
+        div.append(label, link);
+        extra.appendChild(div);
+    });
+
+    document.getElementById("saveBtn").innerHTML =
+        '<i class="fas fa-download"></i> Download Media';
+
+    result.style.display = "block";
+    scrollResult();
 }
 
 // SET AUTHOR
-
 function setAuthor(name, username, avatar, verified) {
+    document.getElementById("nickname").textContent = name;
+    document.getElementById("username").textContent = username;
 
-document.getElementById("nickname").textContent = name;
+    const avatarElement = document.getElementById("avatar");
 
-document.getElementById("username").textContent = username;
+    avatarElement.src = avatar || "";
 
-const avatarElement = document.getElementById("avatar");
+    avatarElement.onerror = () => {
+        avatarElement.src = "https://placehold.co/100x100?text=User";
+    };
 
-avatarElement.src = avatar || "";
-
-avatarElement.onerror = () => {
-    avatarElement.src =
-        "https://placehold.co/100x100?text=User";
-};
-
-document.getElementById("verified").style.display =
-    verified ? "grid" : "none";
-
+    document.getElementById("verified").style.display =
+        verified ? "grid" : "none";
 }
 
 // SCROLL RESULT
-
 function scrollResult() {
+    result.scrollIntoView({
+        behavior: "smooth",
+        block: "start"
+    });
+}
 
-result.scrollIntoView({
-    behavior: "smooth",
-    block: "start"
-});
+// DOWNLOAD FILE
+async function downloadFile(url, type, button) {
+    const original = button.innerHTML;
 
+    button.disabled = true;
+    button.innerHTML =
+        '<i class="fas fa-spinner fa-spin"></i> Menyiapkan...';
+
+    try {
+        const response = await fetch(url);
+
+        if (!response.ok) {
+            throw new Error("Download tidak tersedia.");
+        }
+
+        const blob = await response.blob();
+        const blobUrl = URL.createObjectURL(blob);
+
+        const a = document.createElement("a");
+
+        a.href = blobUrl;
+        a.download = generateFileName(type);
+
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+
+        setTimeout(() => {
+            URL.revokeObjectURL(blobUrl);
+        }, 10000);
+
+    } catch (err) {
+        console.error(err);
+
+        window.open(url, "_blank", "noopener,noreferrer");
+
+    } finally {
+        button.innerHTML = original;
+        button.disabled = false;
+    }
 }
 
 // SAVE MEDIA
-
 async function saveMedia() {
+    if (!currentMedia) return;
 
-if (!currentMedia) return;
+    const btn = document.getElementById("saveBtn");
 
-const btn = document.getElementById("saveBtn");
-
-const original = btn.innerHTML;
-
-btn.disabled = true;
-
-btn.innerHTML =
-    '<i class="fas fa-spinner fa-spin"></i> Menyiapkan download...';
-
-try {
-
-    const response = await fetch(currentMedia.url);
-
-    if (!response.ok) {
-        throw new Error("Download tidak tersedia.");
-    }
-
-    const blob = await response.blob();
-
-    const blobUrl = URL.createObjectURL(blob);
-
-    const a = document.createElement("a");
-
-    a.href = blobUrl;
-    a.download = currentMedia.filename;
-
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-
-    setTimeout(() => {
-        URL.revokeObjectURL(blobUrl);
-    }, 10000);
-
-} catch (err) {
-
-    window.open(
+    await downloadFile(
         currentMedia.url,
-        "_blank",
-        "noopener,noreferrer"
+        currentMedia.type,
+        btn
     );
-
-} finally {
-
-    btn.innerHTML = original;
-    btn.disabled = false;
-
-}
-
 }
 
 // ENTER KEY
-
 input.addEventListener("keydown", e => {
-
-if (e.key === "Enter") {
-    downloadMedia();
-}
-
+    if (e.key === "Enter") {
+        downloadMedia();
+    }
 });
