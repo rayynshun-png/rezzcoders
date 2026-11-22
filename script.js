@@ -1,5 +1,6 @@
 const TIKTOK_API = "https://tikwm.com/api/";
 const INSTAGRAM_API = "https://api.nexray.eu.cc/downloader/v2/instagram";
+const FACEBOOK_API = "https://api.nexray.eu.cc/downloader/facebook";
 
 let currentMedia = null;
 let currentPlatform = "tiktok";
@@ -13,13 +14,16 @@ const downloadBtn = document.getElementById("downloadBtn");
 const preview = document.getElementById("preview");
 const imagePreview = document.getElementById("imagePreview");
 
-// RANDOM FILENAME
+// GENERATE RANDOM FILENAME
 function generateFileName(type) {
-    const random = crypto.randomUUID().replace(/-/g, "");
-    const timestamp = Date.now();
-    const extension = type === "video" ? "mp4" : "jpg";
+    const random = Array.from(
+        { length: 24 },
+        () => "abcdefghijklmnopqrstuvwxyz"[
+            Math.floor(Math.random() * 26)
+        ]
+    ).join("");
 
-    return `ReTikWM-${timestamp}-${random}.${extension}`;
+    return `retikwm-${random}.${type === "video" ? "mp4" : "jpg"}`;
 }
 
 // PLATFORM SELECT
@@ -33,9 +37,13 @@ document.querySelectorAll(".platform-btn").forEach(btn => {
         currentPlatform = btn.dataset.platform;
         input.value = "";
 
-        input.placeholder = currentPlatform === "tiktok"
-            ? "https://www.tiktok.com/..."
-            : "https://www.instagram.com/reel/...";
+        const placeholders = {
+            tiktok: "https://www.tiktok.com/...",
+            instagram: "https://www.instagram.com/reel/...",
+            facebook: "https://www.facebook.com/share/v/..."
+        };
+
+        input.placeholder = placeholders[currentPlatform] || "Masukkan link...";
 
         resetResult();
     });
@@ -71,12 +79,13 @@ function resetResult() {
 
     preview.pause();
     preview.removeAttribute("src");
+    preview.removeAttribute("poster");
     preview.load();
 
     imagePreview.removeAttribute("src");
-    currentMedia = null;
+    imagePreview.style.display = "none";
 
-    document.getElementById("extraDownloads").innerHTML = "";
+    currentMedia = null;
 }
 
 // MAIN DOWNLOAD
@@ -90,13 +99,14 @@ async function downloadMedia() {
         return;
     }
 
-    if (currentPlatform === "tiktok" && !/tiktok\.com/i.test(url)) {
-        showError("Link yang dimasukkan bukan link TikTok!");
-        return;
-    }
+    const domains = {
+        tiktok: /tiktok\.com/i,
+        instagram: /instagram\.com/i,
+        facebook: /(facebook\.com|fb\.watch)/i
+    };
 
-    if (currentPlatform === "instagram" && !/instagram\.com/i.test(url)) {
-        showError("Link yang dimasukkan bukan link Instagram!");
+    if (!domains[currentPlatform]?.test(url)) {
+        showError(`Link yang dimasukkan bukan link ${currentPlatform}!`);
         return;
     }
 
@@ -106,8 +116,10 @@ async function downloadMedia() {
     try {
         if (currentPlatform === "tiktok") {
             await downloadTikTok(url);
-        } else {
+        } else if (currentPlatform === "instagram") {
             await downloadInstagram(url);
+        } else if (currentPlatform === "facebook") {
+            await downloadFacebook(url);
         }
     } catch (err) {
         showError(err.message || "Terjadi kesalahan.");
@@ -118,10 +130,10 @@ async function downloadMedia() {
     }
 }
 
-// TIKTOK API + PHOTO SLIDESHOW
+// TIKTOK API
 async function downloadTikTok(url) {
     const params = new URLSearchParams({
-        url: url,
+        url,
         hd: "1"
     });
 
@@ -141,88 +153,15 @@ async function downloadTikTok(url) {
     const json = await response.json();
 
     if (json.code !== 0 || !json.data) {
-        throw new Error(json.msg || "Gagal mengambil media TikTok.");
+        throw new Error(json.msg || "Gagal mengambil video TikTok.");
     }
 
     const data = json.data;
 
-    // PHOTO SLIDESHOW
-    if (Array.isArray(data.images) && data.images.length > 0) {
-        const photos = data.images;
-
-        currentMedia = {
-            platform: "tiktok",
-            type: "image",
-            url: photos[0],
-            title: data.title || "TikTok Photos",
-            media: photos
-        };
-
-        preview.pause();
-        preview.removeAttribute("src");
-        preview.load();
-        preview.style.display = "none";
-
-        imagePreview.style.display = "block";
-        imagePreview.src = photos[0];
-
-        setAuthor(
-            data.author?.nickname || "TikTok User",
-            "@" + (data.author?.unique_id || "unknown"),
-            data.author?.avatar || "",
-            data.author?.verified
-        );
-
-        document.getElementById("caption").textContent =
-            data.title || "TikTok Photo Slideshow";
-
-        document.getElementById("views").textContent =
-            formatNumber(data.play_count);
-
-        document.getElementById("likes").textContent =
-            formatNumber(data.digg_count);
-
-        document.getElementById("comments").textContent =
-            formatNumber(data.comment_count);
-
-        document.getElementById("qualityTitle").textContent =
-            `${photos.length} Foto Tersedia`;
-
-        document.getElementById("qualityDescription").textContent =
-            "TikTok Photo Slideshow • Original Quality";
-
-        const extra = document.getElementById("extraDownloads");
-        extra.innerHTML = "";
-
-        photos.forEach((photo, index) => {
-            const div = document.createElement("div");
-            div.className = "extra-download-item";
-
-            const label = document.createElement("span");
-            label.textContent = `Foto ${index + 1}`;
-
-            const link = document.createElement("a");
-            link.href = "#";
-            link.innerHTML = '<i class="fas fa-download"></i> Download';
-
-            link.addEventListener("click", async e => {
-                e.preventDefault();
-                await downloadFile(photo, "image", link);
-            });
-
-            div.append(label, link);
-            extra.appendChild(div);
-        });
-
-        document.getElementById("saveBtn").innerHTML =
-            '<i class="fas fa-download"></i> Download Foto Pertama';
-
-        result.style.display = "block";
-        scrollResult();
-        return;
+    if (data.duration === 0 && data.images?.length) {
+        throw new Error("Konten TikTok ini berupa foto/slideshow.");
     }
 
-    // VIDEO
     const videoUrl = data.hdplay || data.play;
 
     if (!videoUrl) {
@@ -306,14 +245,79 @@ async function downloadInstagram(url) {
         throw new Error("Link media tidak tersedia.");
     }
 
+    showMediaResult({
+        platform: "instagram",
+        data,
+        media,
+        author: data.author || {},
+        title: data.title || "Instagram Media",
+        views: "-",
+        likes: formatNumber(data.stats?.likes),
+        comments: formatNumber(data.stats?.comments)
+    });
+}
+
+// FACEBOOK API
+async function downloadFacebook(url) {
+    const response = await fetch(
+        `${FACEBOOK_API}?url=${encodeURIComponent(url)}`
+    );
+
+    if (!response.ok) {
+        throw new Error("Server Facebook error: " + response.status);
+    }
+
+    const json = await response.json();
+
+    if (!json.status || !json.result) {
+        throw new Error("Gagal mengambil media Facebook.");
+    }
+
+    const data = json.result;
+
+    if (!Array.isArray(data.data) || !data.data.length) {
+        throw new Error("Media Facebook tidak ditemukan.");
+    }
+
+    const media = data.data.filter(item =>
+        item.url && ["video", "image"].includes(item.type)
+    );
+
+    if (!media.length) {
+        throw new Error("Link media Facebook tidak tersedia.");
+    }
+
+    showMediaResult({
+        platform: "facebook",
+        data,
+        media,
+        author: data.author || {},
+        title: data.title || "Facebook Media",
+        views: data.stats?.views || "-",
+        likes: data.stats?.likes || "-",
+        comments: data.stats?.comments || "-"
+    });
+}
+
+// DISPLAY INSTAGRAM & FACEBOOK RESULT
+function showMediaResult({
+    platform,
+    data,
+    media,
+    author,
+    title,
+    views,
+    likes,
+    comments
+}) {
     const first = media[0];
 
     currentMedia = {
-        platform: "instagram",
+        platform,
         type: first.type,
         url: first.url,
-        title: data.title || "Instagram Media",
-        media: media
+        title,
+        media
     };
 
     if (first.type === "video") {
@@ -330,34 +334,41 @@ async function downloadInstagram(url) {
         imagePreview.src = first.url;
     }
 
-    const author = data.author || {};
+    const fallbackName = platform === "facebook"
+        ? "Facebook User"
+        : "Instagram User";
+
+    const username = author.username && author.username !== "-"
+        ? "@" + author.username
+        : "@" + (platform === "facebook" ? "facebook" : "instagram");
 
     setAuthor(
-        author.fullname || author.username || "Instagram User",
-        "@" + (author.username || "unknown"),
-        first.thumbnail || "",
+        author.fullname && author.fullname !== "-"
+            ? author.fullname
+            : author.username && author.username !== "-"
+                ? author.username
+                : fallbackName,
+        username,
+        author.avatar || first.thumbnail || "",
         author.verified
     );
 
     document.getElementById("caption").textContent =
-        data.title || "Tidak ada caption.";
+        title || "Tidak ada caption.";
 
-    document.getElementById("views").textContent = "-";
-
-    document.getElementById("likes").textContent =
-        formatNumber(data.stats?.likes);
-
-    document.getElementById("comments").textContent =
-        formatNumber(data.stats?.comments);
+    document.getElementById("views").textContent = views;
+    document.getElementById("likes").textContent = likes;
+    document.getElementById("comments").textContent = comments;
 
     document.getElementById("qualityTitle").textContent =
         media.length > 1
             ? `${media.length} Media Tersedia`
-            : "Instagram Original";
+            : `${platform === "facebook" ? "Facebook" : "Instagram"} Original`;
 
     document.getElementById("qualityDescription").textContent =
         `${first.type.toUpperCase()} • ${data.duration || "Original Quality"}`;
 
+    // EXTRA DOWNLOADS
     const extra = document.getElementById("extraDownloads");
     extra.innerHTML = "";
 
@@ -371,7 +382,8 @@ async function downloadInstagram(url) {
 
         const link = document.createElement("a");
         link.href = "#";
-        link.innerHTML = '<i class="fas fa-download"></i> Download';
+        link.innerHTML =
+            '<i class="fas fa-download"></i> Download';
 
         link.addEventListener("click", async e => {
             e.preventDefault();
@@ -396,7 +408,7 @@ function setAuthor(name, username, avatar, verified) {
 
     const avatarElement = document.getElementById("avatar");
 
-    avatarElement.src = avatar || "";
+    avatarElement.src = avatar || "https://placehold.co/100x100?text=User";
 
     avatarElement.onerror = () => {
         avatarElement.src = "https://placehold.co/100x100?text=User";
@@ -440,9 +452,7 @@ async function downloadFile(url, type, button) {
         a.click();
         a.remove();
 
-        setTimeout(() => {
-            URL.revokeObjectURL(blobUrl);
-        }, 10000);
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
 
     } catch (err) {
         console.error(err);
@@ -465,6 +475,175 @@ async function saveMedia() {
         btn
     );
 }
+
+// MUSIC PLAYLIST
+const playlist = [
+    {
+        title: "Firasat - Marcell",
+        artist: "Marcell",
+        src: "music1.mp3",
+        cover: "cover.jpg"
+    },
+    {
+        title: "Anomali - rumahsakit",
+        artist: "rumahsakit",
+        src: "music2.mp3",
+        cover: "cover.jpg"
+    },
+    {
+        title: "Last Night On Earth - Green Day",
+        artist: "Green Day",
+        src: "music3.mp3",
+        cover: "cover.jpg"
+    }
+];
+
+let currentSong = 0;
+
+const audio = document.getElementById("musicAudio");
+const panel = document.getElementById("musicPanel");
+const toggle = document.getElementById("musicToggle");
+const toggleIcon = document.getElementById("musicToggleIcon");
+const playSmall = document.getElementById("musicPlaySmall");
+const seek = document.getElementById("musicSeek");
+
+// LOAD MUSIC
+function loadSong(index) {
+    currentSong = (index + playlist.length) % playlist.length;
+
+    const song = playlist[currentSong];
+
+    audio.src = song.src;
+
+    document.getElementById("musicTitle").textContent = song.title;
+    document.getElementById("musicArtist").textContent = song.artist;
+    document.getElementById("musicCover").src = song.cover;
+
+    seek.value = 0;
+}
+
+// UPDATE PLAYER
+function updateMusicUI() {
+    const playing = !audio.paused;
+
+    toggleIcon.className = playing
+        ? "fas fa-pause"
+        : "fas fa-play";
+
+    playSmall.innerHTML = playing
+        ? '<i class="fas fa-pause"></i>'
+        : '<i class="fas fa-play"></i>';
+}
+
+// PLAY PAUSE
+async function toggleMusic() {
+    if (audio.paused) {
+        if (!audio.src) loadSong(currentSong);
+
+        try {
+            await audio.play();
+            panel.classList.add("active");
+        } catch (error) {
+            console.error(error);
+        }
+    } else {
+        audio.pause();
+    }
+
+    updateMusicUI();
+}
+
+// NEXT SONG
+async function nextSong() {
+    loadSong(currentSong + 1);
+
+    try {
+        await audio.play();
+        panel.classList.add("active");
+    } catch (error) {
+        console.error(error);
+    }
+
+    updateMusicUI();
+}
+
+// PREVIOUS SONG
+async function prevSong() {
+    loadSong(currentSong - 1);
+
+    try {
+        await audio.play();
+        panel.classList.add("active");
+    } catch (error) {
+        console.error(error);
+    }
+
+    updateMusicUI();
+}
+
+// BUTTON EVENTS
+toggle.addEventListener("click", toggleMusic);
+playSmall.addEventListener("click", toggleMusic);
+
+document.getElementById("musicNext")
+    .addEventListener("click", nextSong);
+
+document.getElementById("musicPrev")
+    .addEventListener("click", prevSong);
+
+// AUTO NEXT
+audio.addEventListener("ended", nextSong);
+
+// PLAY EVENT
+audio.addEventListener("play", () => {
+    panel.classList.add("active");
+    updateMusicUI();
+});
+
+// PAUSE EVENT
+audio.addEventListener("pause", updateMusicUI);
+
+// PROGRESS
+audio.addEventListener("timeupdate", () => {
+    if (!audio.duration) return;
+
+    seek.value = (audio.currentTime / audio.duration) * 100;
+
+    document.getElementById("musicCurrent").textContent =
+        formatMusicTime(audio.currentTime);
+});
+
+// DURATION
+audio.addEventListener("loadedmetadata", () => {
+    document.getElementById("musicDuration").textContent =
+        formatMusicTime(audio.duration);
+});
+
+// SEEK
+seek.addEventListener("input", () => {
+    if (audio.duration) {
+        audio.currentTime = (seek.value / 100) * audio.duration;
+    }
+});
+
+// TIME FORMAT
+function formatMusicTime(time) {
+    if (!Number.isFinite(time)) return "0:00";
+
+    const min = Math.floor(time / 60);
+    const sec = Math.floor(time % 60);
+
+    return `${min}:${String(sec).padStart(2, "0")}`;
+}
+
+
+// INITIALIZE
+loadSong(0);
+
+// CLOSE MUSIC PANEL
+document.getElementById("musicClose").addEventListener("click", () => {
+    panel.classList.remove("active");
+});
 
 // ENTER KEY
 input.addEventListener("keydown", e => {

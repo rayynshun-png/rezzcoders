@@ -16,6 +16,70 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
 </head><body><div class="app"><header>
+
+<div class="music-widget">
+<div class="music-panel" id="musicPanel">
+<button class="music-close" id="musicClose">
+    <i class="fas fa-xmark"></i>
+</button>
+
+    <!-- SONG INFO -->
+    <div class="music-info">
+        <img src="cover.jpg" id="musicCover" alt="Music Cover">
+
+        <div>
+            <strong id="musicTitle">Music</strong>
+            <small id="musicArtist">ReTikWM Playlist</small>
+        </div>
+    </div>
+
+    <!-- PROGRESS -->
+    <div class="music-progress">
+        <span id="musicCurrent">0:00</span>
+
+        <input
+            type="range"
+            id="musicSeek"
+            value="0"
+            min="0"
+            max="100"
+        >
+
+        <span id="musicDuration">0:00</span>
+    </div>
+
+    <!-- MUSIC CONTROLS -->
+    <div class="music-controls">
+
+        <!-- PREVIOUS -->
+        <button id="musicPrev" title="Previous Song">
+            <i class="fas fa-backward-step"></i>
+        </button>
+
+        <!-- PLAY PAUSE -->
+        <button id="musicPlaySmall" title="Play/Pause">
+            <i class="fas fa-play"></i>
+        </button>
+
+        <!-- NEXT -->
+        <button id="musicNext" title="Next Song">
+            <i class="fas fa-forward-step"></i>
+        </button>
+
+    </div>
+
+</div>
+
+<!-- FLOATING BUTTON -->
+<button class="music-toggle" id="musicToggle">
+    <i class="fas fa-play" id="musicToggleIcon"></i>
+</button>
+
+<!-- AUDIO -->
+<audio id="musicAudio" preload="none"></audio>
+
+</div>
+
     <div class="brand">
         <div class="brand-icon">
             <i class="fas fa-cloud-arrow-down"></i>
@@ -92,6 +156,11 @@
     <button class="platform-btn" data-platform="instagram">
         <i class="fab fa-instagram"></i>
         Instagram
+    </button>
+
+    <button class="platform-btn" data-platform="facebook">
+        <i class="fab fa-facebook"></i>
+        Facebook
     </button>
 
 </div>

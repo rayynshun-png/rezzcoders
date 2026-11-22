@@ -1045,3 +1045,291 @@ cursor: not-allowed;
 .social-links a:active {
     transform: scale(0.9);
 }
+
+/* FACEBOOK THEME */
+
+.platform-btn[data-platform="facebook"].active {
+    background: #1877f2;
+    border-color: #1877f2;
+    color: white;
+}
+
+/* PLATFORM RESPONSIVE */
+
+.platform-select {
+    display: flex;
+    gap: 7px;
+}
+
+.platform-btn {
+    min-width: 0;
+    font-size: 10px;
+    white-space: nowrap;
+}
+
+.platform-btn i {
+    margin-right: 3px;
+}
+
+/* SEMUA PLATFORM ACTIVE HITAM */
+.platform-btn.active,
+.platform-btn[data-platform="tiktok"].active,
+.platform-btn[data-platform="instagram"].active,
+.platform-btn[data-platform="facebook"].active {
+    background: #111 !important;
+    border-color: #111 !important;
+    color: #fff !important;
+}
+
+/* ICON JUGA PUTIH */
+.platform-btn.active i {
+    color: #fff !important;
+}
+
+/* =========================
+   FLOATING MUSIC PLAYER
+========================= */
+
+.music-widget {
+    --bg: #fff;
+    --text: #111;
+    --secondary: #888;
+    --border: #e5e5e5;
+    --tab: #f2f2f2;
+    --accent: #111;
+    --accent-text: #fff;
+    --shadow: rgba(0,0,0,.15);
+
+    position: fixed;
+    right: 18px;
+    bottom: 25px;
+    z-index: 99999;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+/* =========================
+   TOGGLE BUTTON
+========================= */
+
+.music-toggle {
+    width: 62px;
+    height: 62px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--accent);
+    color: var(--accent-text);
+    font-size: 21px;
+    cursor: pointer;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    box-shadow: 0 4px 20px var(--shadow);
+    transition: .25s;
+}
+
+.music-toggle:active {
+    transform: scale(.9);
+}
+
+/* =========================
+   MUSIC PANEL
+========================= */
+
+.music-panel {
+    position: absolute;
+    right: 72px;
+    bottom: 0;
+    width: 260px;
+    padding: 12px;
+    border-radius: 22px;
+
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+
+    box-shadow: 0 5px 25px var(--shadow);
+
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+
+    opacity: 0;
+    visibility: hidden;
+    transform: translateX(12px);
+    transition: .25s ease;
+}
+
+.music-panel.active {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(0);
+}
+
+/* =========================
+   PLAYLIST TABS
+========================= */
+
+.music-tabs {
+    display: flex;
+    gap: 7px;
+    margin-bottom: 12px;
+}
+
+.music-tabs span {
+    flex: 1;
+    text-align: center;
+    padding: 8px 5px;
+    border-radius: 30px;
+
+    background: var(--tab);
+    color: var(--secondary);
+
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.music-tabs span.active {
+    background: var(--accent);
+    color: var(--accent-text);
+}
+
+/* =========================
+   MUSIC INFO
+========================= */
+
+.music-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.music-info img {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1px solid var(--border);
+}
+
+.music-info div {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.music-info strong {
+    font-size: 12px;
+    color: var(--text);
+}
+
+.music-info small {
+    font-size: 10px;
+    color: var(--secondary);
+}
+
+/* =========================
+   MUSIC PROGRESS
+========================= */
+
+.music-progress {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+
+    color: var(--secondary);
+    font-size: 9px;
+}
+
+.music-progress input {
+    flex: 1;
+    min-width: 0;
+    accent-color: var(--accent);
+    cursor: pointer;
+}
+
+/* =========================
+   MUSIC CONTROLS
+========================= */
+
+.music-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 22px;
+    margin-top: 14px;
+}
+
+.music-controls button {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text);
+
+    font-size: 14px;
+    cursor: pointer;
+    transition: .2s;
+}
+
+.music-controls button:active {
+    transform: scale(.85);
+}
+
+/* PLAY BUTTON */
+
+.music-controls #musicPlaySmall {
+    width: 42px;
+    height: 42px;
+
+    background: var(--accent);
+    color: var(--accent-text);
+    border: none;
+}
+
+/* =========================
+   DARK MODE
+========================= */
+
+@media (prefers-color-scheme: dark) {
+
+    .music-widget {
+        --bg: #151515;
+        --text: #fff;
+        --secondary: #999;
+        --border: #303030;
+        --tab: #252525;
+        --accent: #fff;
+        --accent-text: #111;
+        --shadow: rgba(0,0,0,.4);
+    }
+
+}
+
+/* CLOSE BUTTON */
+.music-close {
+    display: flex;
+    margin-left: auto;
+    margin-bottom: 8px;
+    width: 25px;
+    height: 25px;
+    align-items: center;
+    justify-content: center;
+
+    border: none;
+    border-radius: 50%;
+    background: var(--tab);
+    color: var(--text);
+
+    cursor: pointer;
+    font-size: 13px;
+}
+
+/* HOVER */
+.music-close:active {
+    transform: scale(.85);
+}
